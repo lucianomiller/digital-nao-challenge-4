@@ -3,6 +3,9 @@ const session = require('express-session');
 const bodyParser = require('body-parser');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const swaggerUi = require('swagger-ui-express');
+const swaggerDocument = require('./swagger.json');
+
 
 const app = express();
 const users = {}; 
@@ -74,6 +77,8 @@ app.get('/user-info', authenticateToken, (req, res) => {
     res.status(404).send('Usuario no encontrado');
   }
 });
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 
 const PORT = 3000;
