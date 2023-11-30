@@ -1,57 +1,80 @@
 const express = require('express');
-const bodyParser = require('body-parser');
 const session = require('express-session');
-
-const secret = require('./secret.json');
+const bodyParser = require('body-parser');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 
 const app = express();
-
-// Define users array
-
-app.listen(3000, () => {
-  console.log('El servidor está escuchando en el puerto 3000');
-});
+const users = {}; 
 
 app.use(session({
-  secret: secret.secret,
+  secret: 'llave-secreta',
   resave: false,
-  saveUninitialized: false,
-  saveChangesOnly: true,
+  saveUninitialized: false
 }));
 
 app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
-app.use(express.static(__dirname + '/public'));
+app.post('/signup', async (req, res) => {
+  const { email, password } = req.body;
 
-// API inicial
+  // Hash the password
+  const hashedPassword = await bcrypt.hash(password, 10);
 
-const authenticateUser = (req, res, next) => {
-  // Check if user is authenticated
-  if (req.session && req.session.user) {
-    // User is authenticated, proceed to the next middleware
-    next();
-  } else {
-    // User is not authenticated, send an error response
-    res.status(401).json({ message: 'Unauthorized' });
-  }
-};
-
-// Login route
-app.post('/login', (req, res) => {
-  const { username, password } = req.body;
+  users[email] = { password: hashedPassword, confirmed: false };
   
-  // Check if username and password are valid
-  if (username === 'admin' && password === 'password') {
-    // Set the user in the session
-    req.session.user = username;
-    res.json({ message: 'Login successful' });
+  res.status(201).send('Usuario creado');
+});
+
+app.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+
+  // Check if user exists and password is correct
+  if (users[email] && await bcrypt.compare(password, users[email].password)) {
+    // Generate JWT token
+    const token = jwt.sign({ email }, 'secret-key', { expiresIn: '1h' });
+
+    res.json({ token });
   } else {
-    res.status(401).json({ message: 'Invalid credentials' });
+    res.status(401).send('Credenciales inválidas');
   }
 });
 
-app.get('/', authenticateUser, (req, res) => {
-  res.json({
-    message: 'Hola mundo',
+// Middleware to verify JWT token
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (token == null) return res.sendStatus(401);
+
+  jwt.verify(token, 'secret-key', (err, user) => {
+    if (err) return res.sendStatus(403);
+
+    req.user = user;
+    next();
   });
+}
+
+app.get('/public-classes', (req, res) => {
+  res.json({ classes: ['Hell HIIT', 'Instant crush', 'Lava Tone', 'Drills n Tricks', 'Calisthenics - ft. Bar Bros'] });
 });
+
+app.get('/private-classes', authenticateToken, (req, res) => {
+  res.json({ classes: ['Advanced Calisthenics', 'Full-body resistance'] });
+});
+
+app.get('/user-info', authenticateToken, (req, res) => {
+  const { email } = req.user;
+  const userInfo = users[email];
+
+  if (userInfo) {
+    res.json(userInfo);
+  } else {
+    res.status(404).send('Usuario no encontrado');
+  }
+});
+
+
+const PORT = 3000;
+app.listen(PORT, () => console.log(`Servidor local expuesto en: http://localhost:${PORT}`));
