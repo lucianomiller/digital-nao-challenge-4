@@ -5,78 +5,84 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
+const passport = require('passport');
+const crypto = require('crypto');
 
+const GoogleStrategy = require('passport-google-oauth2').Strategy;
 
 const app = express();
-const users = {}; 
 
-app.use(session({
-  secret: 'llave-secreta',
-  resave: false,
-  saveUninitialized: false
-}));
+app.use(session({ secret: 'cats', resave: false, saveUninitialized: true }));
+app.use(passport.initialize());
+app.use(passport.session());
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-app.post('/signup', async (req, res) => {
-  const { email, password } = req.body;
+passport.use(new GoogleStrategy({
+  clientID: '921337457002-tuchjfeql0hfop79tdfig5r4nu9q2nud.apps.googleusercontent.com',
+  clientSecret: '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',
+  callbackURL: "http://localhost:3000/auth/google/callback",
+  passReqToCallback: true,
+},
+function(request, accessToken, refreshToken, profile, done) {
+  return done(null, profile);
+}));
 
-  // Hash the password
-  const hashedPassword = await bcrypt.hash(password, 10);
-
-  users[email] = { password: hashedPassword, confirmed: false };
-  
-  res.status(201).send('Usuario creado');
+passport.serializeUser(function(user, done) {
+  done(null, user);
 });
 
-app.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-
-  // Check if user exists and password is correct
-  if (users[email] && await bcrypt.compare(password, users[email].password)) {
-    // Generate JWT token
-    const token = jwt.sign({ email }, 'secret-key', { expiresIn: '1h' });
-
-    res.json({ token });
-  } else {
-    res.status(401).send('Credenciales inválidas');
-  }
+passport.deserializeUser(function(user, done) {
+  done(null, user);
 });
 
-// Middleware to verify JWT token
-function authenticateToken(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (token == null) return res.sendStatus(401);
-
-  jwt.verify(token, 'secret-key', (err, user) => {
-    if (err) return res.sendStatus(403);
-
-    req.user = user;
-    next();
-  });
+function isLoggedIn(req, res, next) {
+  req.user ? next() : res.sendStatus(401);
 }
+
+app.get('/', (req, res) => {
+  res.send('<a href="/auth/google">Authenticate with Google</a>');
+});
+
+app.get('/auth/google',
+  passport.authenticate('google', {
+    session: false,
+    scope: ['profile', 'email'],
+    codeChallenge: crypto.randomBytes(32).toString('base64'),
+    codeChallengeMethod: 'S256',
+  })
+);
+
+app.get('/auth/google/callback', passport.authenticate('google', {
+  successRedirect: '/protected',
+  failureRedirect: '/auth/google/failure'
+}));
+
+
+app.get('/protected', isLoggedIn, (req, res) => {
+  res.send(`Hello ${req.user.displayName}`);
+});
+
+app.get('/logout', (req, res) => {
+  req.logout();
+  req.session.destroy();
+  res.send('Goodbye!');
+});
+
+app.get('/auth/google/failure', (req, res) => {
+  res.send('Failed to authenticate..');
+});
+
 
 app.get('/public-classes', (req, res) => {
   res.json({ classes: ['Hell HIIT', 'Instant crush', 'Lava Tone', 'Drills n Tricks', 'Calisthenics - ft. Bar Bros'] });
 });
 
-app.get('/private-classes', authenticateToken, (req, res) => {
+app.get('/private-classes', isLoggedIn, (req, res) => {
   res.json({ classes: ['Advanced Calisthenics', 'Full-body resistance'] });
 });
 
-app.get('/user-info', authenticateToken, (req, res) => {
-  const { email } = req.user;
-  const userInfo = users[email];
-
-  if (userInfo) {
-    res.json(userInfo);
-  } else {
-    res.status(404).send('Usuario no encontrado');
-  }
-});
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 

@@ -1,8 +1,9 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "Digital Nao Challenge API",
-    "version": "1.0.0"
+    "title": "Digital Nao API",
+    "version": "1.0.0",
+    "description": "API documentation for Digital Nao application"
   },
   "servers": [
     {
@@ -10,73 +11,102 @@
     }
   ],
   "paths": {
-    "/signup": {
-      "post": {
-        "summary": "Create a new user",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "email": {
-                    "type": "string"
-                  },
-                  "password": {
-                    "type": "string"
-                  }
+    "/": {
+      "get": {
+        "summary": "Get home page",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "User created"
           }
         }
       }
     },
-    "/login": {
-      "post": {
-        "summary": "User login",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "email": {
-                    "type": "string"
-                  },
-                  "password": {
-                    "type": "string"
-                  }
+    "/auth/google": {
+      "get": {
+        "summary": "Authenticate with Google",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
           }
-        },
+        }
+      }
+    },
+    "/auth/google/callback": {
+      "get": {
+        "summary": "Google authentication callback",
+        "responses": {
+          "302": {
+            "description": "Redirect to success or failure page"
+          }
+        }
+      }
+    },
+    "/protected": {
+      "get": {
+        "summary": "Get protected page",
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ],
         "responses": {
           "200": {
-            "description": "Successful login",
+            "description": "Successful response",
             "content": {
-              "application/json": {
+              "text/html": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "token": {
-                      "type": "string"
-                    }
-                  }
+                  "type": "string"
                 }
               }
             }
-          },
-          "401": {
-            "description": "Invalid credentials"
+          }
+        }
+      }
+    },
+    "/logout": {
+      "get": {
+        "summary": "Logout user",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/google/failure": {
+      "get": {
+        "summary": "Failed to authenticate with Google",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -86,7 +116,7 @@
         "summary": "Get public classes",
         "responses": {
           "200": {
-            "description": "Successful operation",
+            "description": "Successful response",
             "content": {
               "application/json": {
                 "schema": {
@@ -109,9 +139,14 @@
     "/private-classes": {
       "get": {
         "summary": "Get private classes",
+        "security": [
+          {
+            "sessionAuth": []
+          }
+        ],
         "responses": {
           "200": {
-            "description": "Successful operation",
+            "description": "Successful response",
             "content": {
               "application/json": {
                 "schema": {
@@ -127,42 +162,39 @@
                 }
               }
             }
-          },
-          "401": {
-            "description": "Unauthorized"
           }
         }
       }
     },
-    "/user-info": {
+    "/api-docs": {
       "get": {
-        "summary": "Get user information",
+        "summary": "Get API documentation",
         "responses": {
           "200": {
-            "description": "Successful operation",
+            "description": "Successful response",
             "content": {
-              "application/json": {
+              "text/html": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "password": {
-                      "type": "string"
-                    },
-                    "confirmed": {
-                      "type": "boolean"
-                    }
-                  }
+                  "type": "string"
                 }
               }
             }
-          },
-          "401": {
-            "description": "Unauthorized"
-          },
-          "404": {
-            "description": "User not found"
           }
         }
+      }
+    }
+  },
+  "security": [
+    {
+      "sessionAuth": []
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "sessionAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "connect.sid"
       }
     }
   }
