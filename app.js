@@ -1,12 +1,11 @@
 const express = require('express');
 const session = require('express-session');
 const bodyParser = require('body-parser');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./swagger.json');
 const passport = require('passport');
 const crypto = require('crypto');
+const csurf = require('csurf');
 
 const GoogleStrategy = require('passport-google-oauth2').Strategy;
 
@@ -18,6 +17,8 @@ app.use(passport.session());
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
+
+app.use(csurf());
 
 passport.use(new GoogleStrategy({
   clientID: '921337457002-tuchjfeql0hfop79tdfig5r4nu9q2nud.apps.googleusercontent.com',
@@ -40,6 +41,19 @@ passport.deserializeUser(function(user, done) {
 function isLoggedIn(req, res, next) {
   req.user ? next() : res.sendStatus(401);
 }
+
+app.use((req, res, next) => {
+  res.locals.csrfToken = req.csrfToken();
+  next();
+});
+
+app.get('/csrf', (req, res) => {
+  res.send(res.locals.csrfToken);
+});
+
+app.post('/protegido', (req, res) => {
+  res.send('¡Esta ruta está protegida por CSRF!');
+});
 
 app.get('/', (req, res) => {
   res.send('<a href="/auth/google">Authenticate with Google</a>');
@@ -79,7 +93,7 @@ app.get('/public-classes', (req, res) => {
   res.json({ classes: ['Hell HIIT', 'Instant crush', 'Lava Tone', 'Drills n Tricks', 'Calisthenics - ft. Bar Bros'] });
 });
 
-app.get('/private-classes', isLoggedIn, (req, res) => {
+app.post('/private-classes', isLoggedIn, (req, res) => {
   res.json({ classes: ['Advanced Calisthenics', 'Full-body resistance'] });
 });
 
